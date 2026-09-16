@@ -5,18 +5,79 @@ use Livewire\Component;
 use Livewire\Attributes\Title;
 use Livewire\WithPagination;
 use Livewire\Attributes\Computed;
+use App\Enums\ProductStatus;
+use App\Models\Category;
+use Livewire\Attributes\Url;
 
 
 new #[Title('Products')]
     class extends Component {
     use WithPagination;
 
+    // #[Url] keeps each filter in the address bar, so a filtered list can be bookmarked or shared.
+    #[Url(except: '')]
+    public string $search = '';
+
+    #[Url(except: '')]
+    public string $category = '';
+
+    #[Url(except: '')]
+    public string $status = '';
+
+    #[Url(except: 'created')]
+    public string $sort = 'created';
+
+    #[Url(except: 'desc')]
+    public string $direction = 'desc';
+
+    public array $selected = [];
+
+    /**
+     * Any filter change: go back to page 1 and forget the ticked rows.
+     */
+    public function updated(string $property): void
+    {
+        if (in_array($property, ['search', 'category', 'status'])) {
+            $this->resetPage();
+            $this->selected = [];
+        }
+    }
+
+    public function sortBy(string $column): void
+    {
+        if (!array_key_exists($column, Product::SORTABLE)) {
+            return;
+        }
+
+        $this->direction = $this->sort === $column && $this->direction === 'asc' ? 'desc' : 'asc';
+        $this->sort = $column;
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->reset('search', 'category', 'status', 'selected');
+        $this->resetPage();
+    }
+
     #[Computed]
     public function products()
     {
         return Product::query()
             ->with(['category', 'user', 'tags'])
+            ->filter($this->filters())
             ->paginate(10);
+    }
+
+    #[Computed]
+    public function categories()
+    {
+        return Category::orderBy('name')->get();
+    }
+
+    private function filters(): array
+    {
+        return $this->only(['search', 'category', 'status', 'sort', 'direction']);
     }
 };
 ?>
@@ -39,14 +100,42 @@ new #[Title('Products')]
             </div>
         </div>
 
+        {{-- Filters --}}
+        <div class="grid gap-3 sm:grid-cols-[1fr_12rem_12rem_auto]">
+            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass"
+                :placeholder="__('Search by name or SKU…')" clearable />
+
+            <flux:select wire:model.live="category">
+                <flux:select.option value="">{{ __('All categories') }}</flux:select.option>
+                @foreach ($this->categories as $option)
+                    <flux:select.option :value="$option->id">{{ $option->name }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            <flux:select wire:model.live="status">
+                <flux:select.option value="">{{ __('All statuses') }}</flux:select.option>
+                @foreach (ProductStatus::cases() as $option)
+                    <flux:select.option :value="$option->value">{{ $option->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
+
+            @if ($search || $category || $status)
+                <flux:button wire:click="clearFilters" variant="ghost" icon="x-mark">{{ __('Clear') }}</flux:button>
+            @endif
+        </div>
+
         {{-- Table --}}
-        <flux:table :paginate="$this->products">
+        <flux:table :paginate="$this->products" wire:loading.class="opacity-60"
+            wire:target="search, category, status, sortBy, gotoPage, nextPage, previousPage">
             <flux:table.columns>
-                <flux:table.column>{{ __('Product') }}</flux:table.column>
+                <flux:table.column sortable :sorted="$sort === 'name'" :direction="$direction"
+                    wire:click="sortBy('name')">{{ __('Product') }}</flux:table.column>
                 <flux:table.column>{{ __('Category') }}</flux:table.column>
                 <flux:table.column>{{ __('Status') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('Price') }}</flux:table.column>
-                <flux:table.column align="end">{{ __('Stock') }}</flux:table.column>
+                <flux:table.column sortable :sorted="$sort === 'price'" :direction="$direction"
+                    wire:click="sortBy('price')" align="end">{{ __('Price') }}</flux:table.column>
+                <flux:table.column sortable :sorted="$sort === 'stock'" :direction="$direction"
+                    wire:click="sortBy('stock')" align="end">{{ __('Stock') }}</flux:table.column>
                 <flux:table.column>{{ __('Owner') }}</flux:table.column>
                 <flux:table.column></flux:table.column>
             </flux:table.columns>
@@ -122,8 +211,12 @@ new #[Title('Products')]
                             <div class="flex flex-col items-center gap-3 py-12 text-center">
                                 <flux:icon.cube class="size-10 text-zinc-400" />
                                 <flux:heading>{{ __('No products match your filters') }}</flux:heading>
-                                <flux:button :href="route('products.create')" size="sm" variant="primary" wire:navigate>
-                                    {{ __('Create your first product') }}</flux:button>
+                                @if ($search || $category || $status)
+                                    <flux:button wire:click="clearFilters" size="sm">{{ __('Clear filters') }}</flux:button>
+                                @else
+                                    <flux:button :href="route('products.create')" size="sm" variant="primary" wire:navigate>
+                                        {{ __('Create your first product') }}</flux:button>
+                                @endif
                             </div>
                         </flux:table.cell>
                     </flux:table.row>

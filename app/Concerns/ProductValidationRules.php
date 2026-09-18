@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Concerns\Concerns;
+namespace App\Concerns;
 
 use App\Enums\ProductStatus;
 use App\Models\Category;

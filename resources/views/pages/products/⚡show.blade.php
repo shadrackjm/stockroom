@@ -3,6 +3,7 @@
 use App\Models\Product;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Flux\Flux;
 
 new #[Title('Product')]
     class extends Component {
@@ -11,6 +12,17 @@ new #[Title('Product')]
     public function mount(Product $product): void
     {
         $this->product = $product->load(['category', 'user', 'tags']);
+    }
+
+    public function delete(): void
+    {
+        $this->authorize('delete', $this->product);
+
+        $this->product->delete();
+
+        Flux::toast(variant: 'success', text: "\"{$this->product->name}\" was moved to the trash.");
+
+        $this->redirectRoute('products.index', navigate: true);
     }
 };
 ?>
@@ -37,6 +49,11 @@ new #[Title('Product')]
             @can('update', $product)
                 <flux:button :href="route('products.edit', $product)" icon="pencil-square" wire:navigate>{{ __('Edit') }}
                 </flux:button>
+            @endcan
+            @can('delete', $product)
+                <flux:modal.trigger name="delete-product">
+                    <flux:button variant="danger" icon="trash">{{ __('Delete') }}</flux:button>
+                </flux:modal.trigger>
             @endcan
         </div>
     </div>
@@ -83,8 +100,25 @@ new #[Title('Product')]
 
             <div>
                 <flux:heading size="lg" class="mb-2">{{ __('Description') }}</flux:heading>
-                <flux:text class="whitespace-pre-line">{{ $product->description ?: __('No description yet.') }}</flux:text>
+                <flux:text class="whitespace-pre-line">{{ $product->description ?: __('No description yet.') }}
+                </flux:text>
             </div>
         </div>
     </div>
+    <flux:modal name="delete-product" class="max-w-md">
+        <div class="space-y-6">
+            <div>
+                <flux:heading size="lg">{{ __('Delete this product?') }}</flux:heading>
+                <flux:text class="mt-2">{{ __('It will be moved to the trash. You can restore it from there later.') }}
+                </flux:text>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="ghost">{{ __('Cancel') }}</flux:button>
+                </flux:modal.close>
+                <flux:button wire:click="delete" variant="danger">{{ __('Move to trash') }}</flux:button>
+            </div>
+        </div>
+    </flux:modal>
 </div>

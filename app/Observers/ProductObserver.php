@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Product;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProductObserver
@@ -24,5 +25,16 @@ class ProductObserver
         }
 
         return $slug;
+    }
+
+    /**
+     * Soft-deleted products keep their image (they can be restored).
+     * Permanently deleted ones don't need it any more.
+     */
+    public function forceDeleted(Product $product): void
+    {
+        if ($product->image_path) {
+            Storage::disk('public')->delete($product->image_path);
+        }
     }
 }

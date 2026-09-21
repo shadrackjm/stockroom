@@ -43,6 +43,12 @@ class ProductForm extends Form
     public bool $remove_image = false;
 
     /**
+     * The version of the product when this form was opened (optimistic locking).
+     */
+    #[Locked]
+    public int $version = 1;
+
+    /**
      * @return array<string, mixed>
      */
     protected function rules(): array
@@ -84,6 +90,7 @@ class ProductForm extends Form
         $this->status = $product->status->value;
         $this->image = null;
         $this->remove_image = false;
+        $this->version = $product->version;
     }
 
     public function update(): Product

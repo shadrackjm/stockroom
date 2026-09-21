@@ -32,6 +32,10 @@ trait ProductValidationRules
             'remove_image' => ['boolean'],
         ];
 
+        if ($product) {
+            $rules['version'] = ['required', 'integer'];
+        }
+
         return $rules;
     }
 

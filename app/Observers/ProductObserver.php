@@ -37,4 +37,13 @@ class ProductObserver
             Storage::disk('public')->delete($product->image_path);
         }
     }
+
+    public function updating(Product $product): void
+    {
+        if (! $product->isDirty('version')) {
+            $product->version = $product->getOriginal('version') + 1;
+        }
+    }
+
+    
 }

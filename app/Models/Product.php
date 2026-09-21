@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ProductStatus;
+use App\Concerns\LogsActivity;
 use App\Observers\ProductObserver;
 use App\Policies\ProductPolicy;
 use App\Support\Money;
@@ -27,7 +28,7 @@ use Illuminate\Database\Eloquent\Builder;
 class Product extends Model
 {
     /** @use HasFactory<\Database\Factories\ProductFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, LogsActivity, SoftDeletes;
 
     /**
      * The columns the product list can be sorted by: [url value => database column].
@@ -132,5 +133,38 @@ class Product extends Model
             ->when(ProductStatus::tryFrom($filters['status'] ?? ''), fn(Builder $query, $status) => $query->where('status', $status))
             ->orderBy($column, $direction)
             ->orderBy('id', $direction);
+    }
+
+    /**
+     * How a field name reads in the activity log.
+     */
+    public function activityFieldLabel(string $field): string
+    {
+        return match ($field) {
+            'price_cents' => 'price',
+            'category_id' => 'category',
+            'image_path' => 'image',
+            'sku' => 'SKU',
+            default => str_replace('_', ' ', $field),
+        };
+    }
+
+    /**
+     * How a stored value reads in the activity log.
+     */
+    public function activityFieldValue(string $field, mixed $value): string
+    {
+        if ($value === null || $value === '') {
+            return 'empty';
+        }
+
+        return match ($field) {
+            'price_cents' => Money::format((int) $value),
+            'status' => ProductStatus::tryFrom($value)?->label() ?? $value,
+            'category_id' => Category::find($value)?->name ?? 'a deleted category',
+            'image_path' => 'a new image',
+            'description' => '"' . str($value)->limit(30) . '"',
+            default => (string) $value,
+        };
     }
 }

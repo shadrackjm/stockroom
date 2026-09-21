@@ -4,6 +4,7 @@ use App\Models\Product;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Flux\Flux;
+use Livewire\Attributes\Computed;
 
 new #[Title('Product')]
     class extends Component {
@@ -23,6 +24,12 @@ new #[Title('Product')]
         Flux::toast(variant: 'success', text: "\"{$this->product->name}\" was moved to the trash.");
 
         $this->redirectRoute('products.index', navigate: true);
+    }
+
+    #[Computed]
+    public function activities()
+    {
+        return $this->product->activities()->with('user')->limit(20)->get();
     }
 };
 ?>
@@ -103,6 +110,26 @@ new #[Title('Product')]
                 <flux:text class="whitespace-pre-line">{{ $product->description ?: __('No description yet.') }}
                 </flux:text>
             </div>
+        </div>
+
+        {{-- Activity log --}}
+        <div>
+            <flux:heading size="lg" class="mb-4">{{ __('Activity') }}</flux:heading>
+
+            <ol class="space-y-4 border-s border-zinc-200 ps-5 dark:border-zinc-700">
+                @foreach ($this->activities as $activity)
+                    <li wire:key="activity-{{ $activity->id }}" class="relative">
+                        <span
+                            class="absolute -start-[1.6rem] top-1.5 size-2.5 rounded-full bg-zinc-300 ring-4 ring-white dark:bg-zinc-600 dark:ring-zinc-800"></span>
+                        <flux:text class="text-zinc-800 dark:text-zinc-200">
+                            <span class="font-medium">{{ $activity->user?->name ?? __('System') }}</span>
+                            {{ $activity->summary() }}
+                        </flux:text>
+                        <flux:text size="sm" :title="$activity->created_at->toDayDateTimeString()">
+                            {{ $activity->created_at->diffForHumans() }}</flux:text>
+                    </li>
+                @endforeach
+            </ol>
         </div>
     </div>
     <flux:modal name="delete-product" class="max-w-md">
